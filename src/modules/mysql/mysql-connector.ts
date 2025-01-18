@@ -1,14 +1,23 @@
-import * as mysql from 'mysql2/promise';
-import { ConfigManager } from '../../core/config-manager';
-import { Logger } from '../../core/logger';
+import { createPool, Pool, PoolConnection } from 'mysql2/promise';
+import { Logger } from '../../utils/logger';
 
 export class MySQLConnector {
   private static instance: MySQLConnector;
-  private connection: mysql.Connection | null = null;
-  private logger = Logger.getInstance();
-  private config = ConfigManager.getInstance();
+  private pool: Pool;
+  private logger: Logger;
 
-  private constructor() {}
+  private constructor() {
+    this.logger = Logger.getInstance();
+    this.pool = createPool({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
+    });
+  }
 
   public static getInstance(): MySQLConnector {
     if (!MySQLConnector.instance) {
@@ -17,41 +26,12 @@ export class MySQLConnector {
     return MySQLConnector.instance;
   }
 
-  public async connect(): Promise<void> {
+  public async getConnection(): Promise<PoolConnection> {
     try {
-      this.connection = await mysql.createConnection({
-        host: this.config.get('MYSQL_HOST', 'localhost'),
-        user: this.config.get('MYSQL_USER', 'root'),
-        password: this.config.get('MYSQL_PASSWORD', ''),
-        database: this.config.get('MYSQL_DATABASE', 'modular_integration')
-      });
-
-      this.logger.info('MySQL connection established successfully');
+      return await this.pool.getConnection();
     } catch (error) {
-      this.logger.error(`MySQL connection error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error('Failed to get database connection', { error });
       throw error;
-    }
-  }
-
-  public async query<T>(sql: string, params?: unknown[]): Promise<T[]> {
-    if (!this.connection) {
-      await this.connect();
-    }
-
-    try {
-      const [results] = await this.connection!.execute(sql, params);
-      return results as T[];
-    } catch (error) {
-      this.logger.error(`MySQL query error: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
-    }
-  }
-
-  public async close(): Promise<void> {
-    if (this.connection) {
-      await this.connection.end();
-      this.logger.info('MySQL connection closed');
-      this.connection = null;
     }
   }
 }
