@@ -1,64 +1,80 @@
-type EventCallback<T> = (data: T) => void | Promise<void>;
+import { Logger } from './logger';
+
+type EventCallback<T = unknown> = (data: T) => void | Promise<void>;
 
 interface EventSubscription {
-  event: string;
-  callback: EventCallback<unknown>;
+  unsubscribe(): void;
 }
 
 export class EventBus {
-  private eventMap: Map<string, Set<EventCallback<unknown>>> = new Map();
+  private static instance: EventBus;
+  private eventMap: Map<string, Set<EventCallback>> = new Map();
+  private logger: Logger;
 
-  public subscribe<T>(event: string, callback: EventCallback<T>): void {
-    if (!this.eventMap.has(event)) {
-      this.eventMap.set(event, new Set());
-    }
-    
-    this.eventMap.get(event)?.add(callback as EventCallback<unknown>);
+  private constructor() {
+    this.logger = new Logger('EventBus');
   }
 
-  public unsubscribe<T>(event: string, callback: EventCallback<T>): void {
-    const callbacks = this.eventMap.get(event);
-    if (callbacks) {
-      callbacks.delete(callback as EventCallback<unknown>);
-      if (callbacks.size === 0) {
-        this.eventMap.delete(event);
+  public static getInstance(): EventBus {
+    if (!EventBus.instance) {
+      EventBus.instance = new EventBus();
+    }
+    return EventBus.instance;
+  }
+
+  public subscribe<T = unknown>(
+    eventName: string, 
+    callback: EventCallback<T>
+  ): EventSubscription {
+    if (!this.eventMap.has(eventName)) {
+      this.eventMap.set(eventName, new Set());
+    }
+
+    const callbackSet = this.eventMap.get(eventName)!;
+    callbackSet.add(callback);
+
+    this.logger.info(`Neuer Subscriber für Event: ${eventName}`);
+
+    return {
+      unsubscribe: () => {
+        callbackSet.delete(callback);
+        this.logger.info(`Subscriber für Event entfernt: ${eventName}`);
       }
-    }
+    };
   }
 
-  public async emit<T>(event: string, data: T): Promise<void> {
-    const callbacks = this.eventMap.get(event);
-    if (!callbacks) return;
+  public async emit<T = unknown>(
+    eventName: string, 
+    data: T
+  ): Promise<void> {
+    const callbacks = this.eventMap.get(eventName);
+    
+    if (!callbacks || callbacks.size === 0) {
+      this.logger.warn(`Keine Subscriber für Event: ${eventName}`);
+      return;
+    }
 
-    const promises = Array.from(callbacks).map(callback => {
+    this.logger.info(`Emitting Event: ${eventName}`, { 
+      subscriberCount: callbacks.size 
+    });
+
+    const promises = Array.from(callbacks).map(async (callback) => {
       try {
-        const result = callback(data);
-        return result instanceof Promise ? result : Promise.resolve();
+        await callback(data);
       } catch (error) {
-        return Promise.reject(error);
+        this.logger.error(`Fehler in Event-Handler für ${eventName}`, error);
       }
     });
 
     await Promise.allSettled(promises);
   }
 
-  public hasSubscribers(event: string): boolean {
-    return this.eventMap.has(event) && (this.eventMap.get(event)?.size ?? 0) > 0;
-  }
-
-  public clearEvent(event: string): void {
-    this.eventMap.delete(event);
-  }
-
-  public clearAllEvents(): void {
+  public clearAllSubscriptions(): void {
     this.eventMap.clear();
+    this.logger.info('Alle Event-Subscriptions gelöscht');
   }
 
-  public getEventCount(): number {
-    return this.eventMap.size;
-  }
-
-  public getSubscriberCount(event: string): number {
-    return this.eventMap.get(event)?.size ?? 0;
+  public getSubscriberCount(eventName: string): number {
+    return this.eventMap.get(eventName)?.size || 0;
   }
 }
