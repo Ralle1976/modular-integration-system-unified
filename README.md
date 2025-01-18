@@ -1,69 +1,46 @@
 # Modular Integration System
 
-## 🚀 Projektübersicht
+## 🚀 Projekt-Beschreibung
+Ein modulares TypeScript-basiertes Integrationssystem mit strengen Coding-Standards und automatisierter CI/CD-Pipeline.
 
-Das Modular Integration System ist eine flexible und erweiterbare Plattform zur Integration verschiedener Dienste und APIs.
-
-## ✨ Hauptfunktionen
-
-- Modulare Architektur
-- Unterstützung mehrerer Dienste
-- Konfigurierbare Integrationen
-- Robuste Fehlerbehandlung
-- Umfangreiches Logging
-
-## 🔧 Unterstützte Module
-
-- [x] MySQL-Integration
-- [ ] GitHub-Integration
-- [ ] OpenAI-Integration
-- [ ] Google Drive-Integration
+## 🛠️ Technologie-Stack
+- TypeScript
+- Node.js
+- ESLint
+- Winston Logging
+- GitHub Actions
 
 ## 📦 Voraussetzungen
+- Node.js (>=18.x)
+- npm (>=8.x)
 
-- Node.js 18+
-- npm oder yarn
-- Docker (optional)
+## 🔧 Erste Schritte
 
-## 🛠️ Installation
-
+### Installation
 ```bash
-# Repository klonen
 git clone https://github.com/Ralle1976/modular-integration-system-unified.git
-
-# In Projektverzeichnis wechseln
 cd modular-integration-system-unified
-
-# Abhängigkeiten installieren
 npm install
-
-# Konfiguration kopieren
-cp .env.example .env
-cp config/config.example.json config/config.json
 ```
 
-## 🚀 Entwicklung
+### Entwicklungs-Skripte
+- `npm start`: Startet die Anwendung
+- `npm run build`: Kompiliert TypeScript
+- `npm run lint`: Führt Linting durch
+- `npm run lint:fix`: Behebt automatisch Lint-Probleme
+- `npm test`: Führt Tests aus
 
-```bash
-# Entwicklungsserver starten
-npm run dev
-
-# Build erstellen
-npm run build
-
-# Tests ausführen
-npm test
-```
-
-## 📄 Dokumentation
-
-- [Architektur](ARCHITECTURE.md)
-- [Entwicklungsanleitung](DEVELOPMENT.md)
+## 📝 Coding-Richtlinien
+- Strikte Typisierung
+- Keine `any`-Typen
+- Explizite Rückgabetypen
+- Strukturiertes Logging
 
 ## 🤝 Beitragen
+1. Repository forken
+2. Feature-Branch erstellen
+3. Änderungen committen
+4. Pull Request erstellen
 
-Bitte lies [CONTRIBUTING.md](CONTRIBUTING.md) für Details zur Mitarbeit.
-
-## 📝 Lizenz
-
-Dieses Projekt steht unter der MIT-Lizenz. Weitere Details in [LICENSE](LICENSE).
+## 📋 Lizenz
+[Ihre Lizenz hier]
