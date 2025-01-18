@@ -1,126 +1,67 @@
-import { Logger } from './logger';
-import { ConfigManager } from './config-manager';
+interface ServiceDescriptor<T> {
+  implementation: new (...args: unknown[]) => T;
+  singleton: boolean;
+  dependencies: string[];
+}
 
-type ClassType<T = any> = new (...args: any[]) => T;
-type Factory<T = any> = () => T;
-
-interface RegistrationOptions {
-  singleton?: boolean;
+interface ServiceRegistry {
+  [key: string]: ServiceDescriptor<unknown>;
 }
 
 export class DependencyContainer {
-  private static instance: DependencyContainer;
-  private logger: Logger;
-  private config: ConfigManager;
-  
-  private services: Map<string | symbol, any> = new Map();
-  private factories: Map<string | symbol, Factory> = new Map();
-  private singletonInstances: Map<string | symbol, any> = new Map();
-
-  private constructor() {
-    this.logger = Logger.getInstance();
-    this.config = ConfigManager.getInstance();
-
-    // Register core services by default
-    this.registerSingleton('logger', () => Logger.getInstance());
-    this.registerSingleton('config', () => ConfigManager.getInstance());
-  }
-
-  public static getInstance(): DependencyContainer {
-    if (!DependencyContainer.instance) {
-      DependencyContainer.instance = new DependencyContainer();
-    }
-    return DependencyContainer.instance;
-  }
+  private services: ServiceRegistry = {};
+  private instances: Map<string, unknown> = new Map();
 
   public register<T>(
-    token: string | symbol, 
-    service: ClassType<T> | Factory<T>, 
-    options: RegistrationOptions = {}
-  ): this {
-    if (typeof service === 'function') {
-      if (options.singleton) {
-        this.registerSingleton(token, service as Factory<T>);
-      } else {
-        this.factories.set(token, service as Factory<T>);
+    key: string, 
+    implementation: new (...args: unknown[]) => T,
+    options: {
+      singleton?: boolean;
+      dependencies?: string[];
+    } = {}
+  ): void {
+    const descriptor: ServiceDescriptor<T> = {
+      implementation,
+      singleton: options.singleton ?? false,
+      dependencies: options.dependencies ?? []
+    };
+    this.services[key] = descriptor;
+  }
+
+  public resolve<T>(key: string): T {
+    const descriptor = this.services[key];
+    if (!descriptor) {
+      throw new Error(`Service '${key}' not registered`);
+    }
+
+    // Für Singletons, prüfe ob bereits eine Instanz existiert
+    if (descriptor.singleton) {
+      const existingInstance = this.instances.get(key);
+      if (existingInstance) {
+        return existingInstance as T;
       }
-    } else {
-      throw new Error('Invalid service registration');
     }
 
-    this.logger.info(`Service registered: ${String(token)}`);
-    return this;
+    // Löse Abhängigkeiten rekursiv auf
+    const dependencies = descriptor.dependencies.map(dep => this.resolve(dep));
+
+    // Erstelle neue Instanz
+    const instance = new descriptor.implementation(...dependencies);
+
+    // Speichere Singleton-Instanzen
+    if (descriptor.singleton) {
+      this.instances.set(key, instance);
+    }
+
+    return instance as T;
   }
 
-  public registerSingleton<T>(
-    token: string | symbol, 
-    service: ClassType<T> | Factory<T>
-  ): this {
-    const factory = typeof service === 'function' 
-      ? service as Factory<T>
-      : () => new service();
-
-    this.factories.set(token, factory);
-    
-    Object.defineProperty(this, 'get', {
-      value: (resolvedToken: string | symbol) => {
-        if (!this.singletonInstances.has(resolvedToken)) {
-          const instance = this.factories.get(resolvedToken)!();
-          this.singletonInstances.set(resolvedToken, instance);
-        }
-        return this.singletonInstances.get(resolvedToken);
-      }
-    });
-
-    this.logger.info(`Singleton registered: ${String(token)}`);
-    return this;
-  }
-
-  public get<T>(token: string | symbol): T {
-    // Check singleton instances first
-    if (this.singletonInstances.has(token)) {
-      return this.singletonInstances.get(token);
-    }
-
-    // Check factories
-    if (this.factories.has(token)) {
-      const factory = this.factories.get(token)!;
-      const instance = factory();
-      
-      // If it was intended to be a singleton, cache the instance
-      this.singletonInstances.set(token, instance);
-      
-      return instance;
-    }
-
-    throw new Error(`No service found for token: ${String(token)}`);
-  }
-
-  public resolve<T>(token: string | symbol): T {
-    try {
-      return this.get<T>(token);
-    } catch (error) {
-      this.logger.error(`Dependency resolution failed: ${String(token)}`);
-      throw error;
-    }
+  public isRegistered(key: string): boolean {
+    return key in this.services;
   }
 
   public reset(): void {
-    this.singletonInstances.clear();
-    this.factories.clear();
-    this.services.clear();
-
-    // Re-register core services
-    this.registerSingleton('logger', () => Logger.getInstance());
-    this.registerSingleton('config', () => ConfigManager.getInstance());
-
-    this.logger.info('Dependency container reset');
-  }
-
-  public listRegisteredServices(): string[] {
-    return [
-      ...Array.from(this.factories.keys()).map(String),
-      ...Array.from(this.singletonInstances.keys()).map(String)
-    ];
+    this.services = {};
+    this.instances.clear();
   }
 }
