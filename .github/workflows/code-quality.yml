@@ -1,48 +1,44 @@
-name: Code Quality
+name: Code Quality Analysis
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main, develop]
 
 jobs:
-  code-quality:
+  analyze:
     runs-on: ubuntu-latest
-    
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['typescript']
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js 18.x
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
-        cache: 'npm'
-    
-    - name: Install dependencies
+        node-version: '20'
+
+    - name: Install Dependencies
       run: npm ci
-    
-    - name: Run ESLint
-      run: npm run lint
-    
-    - name: Run Prettier Check
-      run: npm run format:check
-    
-    - name: Run Type Checks
-      run: npm run type-check
-    
-    - name: Security Audit
-      run: npm audit
-    
-    - name: Generate Coverage Report
-      run: npm run test:coverage
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        fail_ci_if_error: true
-    
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -51,8 +47,13 @@ jobs:
       with:
         projectBaseDir: .
         args: >
-          -Dsonar.organization=ralle1976
-          -Dsonar.projectKey=modular-integration-system
+          -Dsonar.organization=modular-integration-system
+          -Dsonar.projectKey=modular-integration-system-unified
           -Dsonar.sources=src
-          -Dsonar.test.exclusions=tests/**
-          -Dsonar.coverage.exclusions=**/index.ts,**/*.spec.ts
+          -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info
+
+    - name: Coveralls GitHub Action
+      uses: coverallsapp/github-action@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: coverage/lcov.info
