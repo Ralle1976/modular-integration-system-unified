@@ -1,156 +1,135 @@
-import { Logger } from './logger';
-import { ConfigManager } from './config-manager';
-import * as Joi from 'joi';
+import { ErrorHandler } from './error-handler';
+
+interface ValidationRule<T> {
+  check: (value: T) => boolean;
+  message: string;
+}
+
+interface ConfigSchema {
+  [key: string]: {
+    type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+    required?: boolean;
+    validate?: ValidationRule<unknown>[];
+    properties?: ConfigSchema; // Für verschachtelte Objekte
+  };
+}
 
 export class ConfigValidator {
-  private static instance: ConfigValidator;
-  private logger: Logger;
-  private config: ConfigManager;
+  private errorHandler: ErrorHandler;
 
-  private constructor() {
-    this.logger = Logger.getInstance();
-    this.config = ConfigManager.getInstance();
+  constructor() {
+    this.errorHandler = new ErrorHandler('ConfigValidator');
   }
 
-  public static getInstance(): ConfigValidator {
-    if (!ConfigValidator.instance) {
-      ConfigValidator.instance = new ConfigValidator();
-    }
-    return ConfigValidator.instance;
-  }
+  public validate(config: Record<string, unknown>, schema: ConfigSchema): boolean {
+    try {
+      Object.entries(schema).forEach(([key, rules]) => {
+        // Prüfe ob required Felder vorhanden sind
+        if (rules.required && !(key in config)) {
+          throw new Error(`Required field '${key}' is missing`);
+        }
 
-  private baseConfigSchema = Joi.object({
-    application: Joi.object({
-      name: Joi.string().required(),
-      version: Joi.string().required(),
-      environment: Joi.string().valid('development', 'production', 'test').required(),
-      debug: Joi.boolean().default(false)
-    }).required(),
-
-    modules: Joi.object({
-      mysql: Joi.object({
-        enabled: Joi.boolean().default(false),
-        host: Joi.string().when('enabled', { 
-          is: true, 
-          then: Joi.string().required(), 
-          otherwise: Joi.string() 
-        }),
-        port: Joi.number().integer().min(1).max(65535).default(3306),
-        database: Joi.string().when('enabled', { 
-          is: true, 
-          then: Joi.string().required(), 
-          otherwise: Joi.string() 
-        }),
-        maxConnections: Joi.number().integer().min(1).default(10)
-      }),
-
-      github: Joi.object({
-        enabled: Joi.boolean().default(false),
-        apiVersion: Joi.string().default('v3')
-      }),
-
-      openai: Joi.object({
-        enabled: Joi.boolean().default(false),
-        model: Joi.string().default('gpt-3.5-turbo'),
-        maxTokens: Joi.number().integer().min(1).max(4096).default(1000)
-      }),
-
-      googleDrive: Joi.object({
-        enabled: Joi.boolean().default(false),
-        scope: Joi.string().default('https://www.googleapis.com/auth/drive')
-      })
-    }),
-
-    logging: Joi.object({
-      level: Joi.string().valid('error', 'warn', 'info', 'debug').default('info'),
-      format: Joi.string().valid('json', 'text').default('json'),
-      maxFiles: Joi.number().integer().min(1).default(5),
-      maxSize: Joi.alternatives().try(
-        Joi.string().pattern(/^\d+[kMG]$/),
-        Joi.number().integer()
-      ).default('10M')
-    }),
-
-    security: Joi.object({
-      corsEnabled: Joi.boolean().default(true),
-      allowedOrigins: Joi.array().items(Joi.string().uri()).default(['http://localhost:3000']),
-      rateLimiting: Joi.object({
-        windowMs: Joi.number().integer().min(1000).default(15 * 60 * 1000),
-        max: Joi.number().integer().min(1).default(100)
-      })
-    })
-  });
-
-  public validateConfiguration(configData?: any): { 
-    isValid: boolean; 
-    errors?: Joi.ValidationError; 
-    config?: any 
-  } {
-    const configToValidate = configData || this.config.getAll();
-
-    const { error, value } = this.baseConfigSchema.validate(configToValidate, {
-      abortEarly: false,
-      convert: true
-    });
-
-    if (error) {
-      this.logger.error('Configuration validation failed', {
-        errors: error.details.map(detail => detail.message)
+        // Wenn Feld vorhanden ist, validiere es
+        if (key in config) {
+          this.validateField(key, config[key], rules);
+        }
       });
 
-      return {
-        isValid: false,
-        errors: error
-      };
+      return true;
+    } catch (error) {
+      if (error instanceof Error) {
+        this.errorHandler.handleError(error);
+      }
+      return false;
+    }
+  }
+
+  private validateField(
+    key: string, 
+    value: unknown, 
+    rules: ConfigSchema[string]
+  ): void {
+    // Type-Check
+    if (!this.checkType(value, rules.type)) {
+      throw new Error(
+        `Field '${key}' should be of type '${rules.type}' but got '${typeof value}'`
+      );
     }
 
-    this.logger.info('Configuration validated successfully');
-    return {
-      isValid: true,
-      config: value
-    };
-  }
-
-  public sanitizeConfiguration(configData?: any): any {
-    const validationResult = this.validateConfiguration(configData);
-
-    if (!validationResult.isValid) {
-      throw new Error('Cannot sanitize invalid configuration');
-    }
-
-    return validationResult.config;
-  }
-
-  public generateDefaultConfiguration(): any {
-    const { value } = this.baseConfigSchema.validate({});
-    return value;
-  }
-
-  public validateEnvironmentVariables(): { 
-    isValid: boolean; 
-    errors?: string[] 
-  } {
-    const requiredEnvVars = [
-      'JWT_SECRET',
-      'MYSQL_HOST',
-      'MYSQL_PASSWORD'
-    ];
-
-    const missingEnvVars = requiredEnvVars.filter(envVar => 
-      !process.env[envVar]
-    );
-
-    if (missingEnvVars.length > 0) {
-      this.logger.error('Missing required environment variables', {
-        missingVars: missingEnvVars
+    // Validierungsregeln prüfen
+    if (rules.validate) {
+      rules.validate.forEach(rule => {
+        if (!rule.check(value)) {
+          throw new Error(`Validation failed for field '${key}': ${rule.message}`);
+        }
       });
-
-      return {
-        isValid: false,
-        errors: missingEnvVars.map(v => `Missing environment variable: ${v}`)
-      };
     }
 
-    return { isValid: true };
+    // Verschachtelte Objekte validieren
+    if (rules.type === 'object' && rules.properties && typeof value === 'object' && value !== null) {
+      Object.entries(rules.properties).forEach(([propKey, propRules]) => {
+        const propValue = (value as Record<string, unknown>)[propKey];
+        if (propValue !== undefined) {
+          this.validateField(propKey, propValue, propRules);
+        }
+      });
+    }
   }
+
+  private checkType(value: unknown, type: string): boolean {
+    switch (type) {
+      case 'string':
+        return typeof value === 'string';
+      case 'number':
+        return typeof value === 'number';
+      case 'boolean':
+        return typeof value === 'boolean';
+      case 'object':
+        return typeof value === 'object' && value !== null;
+      case 'array':
+        return Array.isArray(value);
+      default:
+        return false;
+    }
+  }
+
+  public static createRule<T>(
+    check: (value: T) => boolean,
+    message: string
+  ): ValidationRule<T> {
+    return { check, message };
+  }
+
+  // Vordefinierte Validierungsregeln
+  public static readonly Rules = {
+    nonEmptyString: ConfigValidator.createRule<string>(
+      value => typeof value === 'string' && value.trim().length > 0,
+      'String should not be empty'
+    ),
+
+    positiveNumber: ConfigValidator.createRule<number>(
+      value => typeof value === 'number' && value > 0,
+      'Number should be positive'
+    ),
+
+    validUrl: ConfigValidator.createRule<string>(
+      value => {
+        try {
+          new URL(value);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      'Value should be a valid URL'
+    ),
+
+    validEmail: ConfigValidator.createRule<string>(
+      value => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(value);
+      },
+      'Value should be a valid email address'
+    )
+  };
 }
