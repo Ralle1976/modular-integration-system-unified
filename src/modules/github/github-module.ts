@@ -2,16 +2,19 @@ import { Octokit } from '@octokit/rest';
 import { ModuleInterface } from '../../core/module-manager';
 import { ConfigManager } from '../../core/config-manager';
 import { Logger } from '../../core/logger';
+import { AdvancedErrorHandler, ErrorCategory, ErrorSeverity } from '../../core/advanced-error-handler';
 
 export class GitHubModule implements ModuleInterface {
   public name: string = 'github';
   private config: ConfigManager;
   private logger: Logger;
+  private errorHandler: AdvancedErrorHandler;
   private client: Octokit | null = null;
 
   constructor() {
     this.config = ConfigManager.getInstance();
     this.logger = Logger.getInstance();
+    this.errorHandler = AdvancedErrorHandler.getInstance();
   }
 
   public isEnabled(): boolean {
@@ -27,8 +30,7 @@ export class GitHubModule implements ModuleInterface {
     const token = this.config.get('GITHUB_TOKEN');
     
     if (!token) {
-      this.logger.error('No GitHub token provided');
-      return false;
+      return this.handleInitializationError('No GitHub token provided');
     }
 
     try {
@@ -43,21 +45,29 @@ export class GitHubModule implements ModuleInterface {
       this.logger.info('GitHub module initialized successfully');
       return true;
     } catch (error) {
-      this.logger.error(`GitHub initialization failed: ${error}`);
-      return false;
+      return this.handleInitializationError(error);
     }
   }
 
-  public async shutdown(): Promise<void> {
-    if (this.client) {
-      this.logger.info('GitHub module shutting down');
-      this.client = null;
-    }
+  private handleInitializationError(error: any): boolean {
+    const detailedError = this.errorHandler.captureError(error, {
+      category: ErrorCategory.AUTHENTICATION,
+      severity: ErrorSeverity.HIGH,
+      context: {
+        module: this.name,
+        additionalData: {
+          tokenProvided: !!this.config.get('GITHUB_TOKEN')
+        }
+      }
+    });
+
+    this.logger.error(`GitHub Module Initialization Failed: ${detailedError.message}`);
+    return false;
   }
 
   public async createRepository(name: string, options?: any): Promise<any> {
     if (!this.client) {
-      throw new Error('GitHub client not initialized');
+      return this.handleRepositoryError(new Error('GitHub client not initialized'));
     }
 
     try {
@@ -69,14 +79,28 @@ export class GitHubModule implements ModuleInterface {
       this.logger.info(`Repository ${name} created successfully`);
       return response.data;
     } catch (error) {
-      this.logger.error(`Error creating repository: ${error}`);
-      throw error;
+      return this.handleRepositoryError(error);
     }
+  }
+
+  private handleRepositoryError(error: any): never {
+    const detailedError = this.errorHandler.captureError(error, {
+      category: ErrorCategory.EXTERNAL_SERVICE,
+      severity: ErrorSeverity.MEDIUM,
+      context: {
+        module: this.name,
+        additionalData: {
+          clientInitialized: !!this.client
+        }
+      }
+    });
+
+    throw new Error(`GitHub Repository Creation Failed: ${detailedError.message}`);
   }
 
   public async listRepositories(username?: string): Promise<any[]> {
     if (!this.client) {
-      throw new Error('GitHub client not initialized');
+      return this.handleListRepositoriesError(new Error('GitHub client not initialized'));
     }
 
     try {
@@ -86,8 +110,29 @@ export class GitHubModule implements ModuleInterface {
       
       return response.data;
     } catch (error) {
-      this.logger.error(`Error listing repositories: ${error}`);
-      throw error;
+      return this.handleListRepositoriesError(error);
+    }
+  }
+
+  private handleListRepositoriesError(error: any): never {
+    const detailedError = this.errorHandler.captureError(error, {
+      category: ErrorCategory.EXTERNAL_SERVICE,
+      severity: ErrorSeverity.MEDIUM,
+      context: {
+        module: this.name,
+        additionalData: {
+          clientInitialized: !!this.client
+        }
+      }
+    });
+
+    throw new Error(`GitHub Repository Listing Failed: ${detailedError.message}`);
+  }
+
+  public async shutdown(): Promise<void> {
+    if (this.client) {
+      this.logger.info('GitHub module shutting down');
+      this.client = null;
     }
   }
 }
