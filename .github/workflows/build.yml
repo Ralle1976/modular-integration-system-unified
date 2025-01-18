@@ -24,23 +24,14 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
     
-    # Führe zuerst eine reguläre Installation durch, wenn keine package-lock.json existiert
-    - name: Generate package-lock.json if needed
+    - name: Install dependencies
       run: |
-        if [ ! -f package-lock.json ]; then
-          echo "Generating new package-lock.json..."
-          rm -rf node_modules
-          npm install --package-lock-only
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add package-lock.json
-          git commit -m "chore: update package-lock.json [skip ci]" || echo "No changes to commit"
-          git push
-        fi
-    
-    # Dann führe npm ci für die saubere Installation durch
-    - name: Clean Install Dependencies
-      run: npm ci
+        npm install
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add package-lock.json
+        git commit -m "chore: update package-lock.json [skip ci]" || echo "No changes to commit"
+        git push || echo "No changes to push"
       
     - name: Run Linter
       run: npm run lint
