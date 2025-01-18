@@ -1,0 +1,80 @@
+name: Performance Monitoring
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Alle 6 Stunden
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          
+      - name: Install Dependencies
+        run: npm ci
+        
+      - name: Run Performance Tests
+        run: |
+          npm install -g lighthouse
+          lighthouse http://your-staging-url.com --output json --output-path=./lighthouse-report.json
+        continue-on-error: true
+        
+      - name: Analyze Performance
+        id: perf-check
+        run: |
+          score=$(jq '.categories.performance.score' lighthouse-report.json)
+          if (( $(echo "$score < 0.8" | bc -l) )); then
+            echo "::warning::Performance score is below threshold: $score"
+            echo "create_issue=true" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+        
+      - name: Create Performance Issue
+        if: steps.perf-check.outputs.create_issue == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🐌 Performance Warning',
+              body: 'Performance score has dropped below threshold. Please check the latest Lighthouse report.',
+              labels: ['performance', 'needs-attention']
+            })
+            
+      - name: Store Performance Data
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-reports
+          path: lighthouse-report.json
+          retention-days: 90
+          
+  resource-monitoring:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check API Rate Limits
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const limits = await github.rest.rateLimit.get()
+            const remaining = limits.data.rate.remaining
+            if (remaining < 1000) {
+              core.warning(`Low API rate limit remaining: ${remaining}`)
+            }
+            
+      - name: Monitor Workflow Usage
+        run: |
+          gh api /repos/${{ github.repository }}/actions/workflows | \
+          jq '.workflows[] | {name, state, runs_count}'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
