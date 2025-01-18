@@ -4,7 +4,7 @@ export class Logger {
   private static instance: Logger;
   private logger: winston.Logger;
 
-  private constructor() {
+  protected constructor() {
     this.logger = winston.createLogger({
       format: winston.format.combine(
         winston.format.timestamp(),
@@ -25,15 +25,19 @@ export class Logger {
     return Logger.instance;
   }
 
-  public log(level: string, message: string, context?: any): void {
-    this.logger.log(level, message, { context });
+  public info(message: string, meta?: any): void {
+    this.logger.info(message, meta);
   }
 
-  public info(message: string, context?: any): void {
-    this.log('info', message, context);
+  public error(message: string, meta?: any): void {
+    this.logger.error(message, meta);
   }
 
-  public error(message: string, context?: any): void {
-    this.log('error', message, context);
+  public warn(message: string, meta?: any): void {
+    this.logger.warn(message, meta);
+  }
+
+  public debug(message: string, meta?: any): void {
+    this.logger.debug(message, meta);
   }
 }
