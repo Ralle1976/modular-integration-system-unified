@@ -1,163 +1,88 @@
 import { Logger } from './logger';
-import { EventBus } from './event-bus';
-import * as fs from 'fs';
-import * as path from 'path';
 
-export enum ErrorSeverity {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  CRITICAL = 'CRITICAL'
-}
-
-export interface ErrorRecord {
-  id: string;
-  timestamp: number;
-  message: string;
-  stack?: string;
-  context?: Record<string, any>;
-  severity: ErrorSeverity;
-  module?: string;
+interface ErrorMetadata {
+  timestamp: Date;
+  module: string;
+  context?: Record<string, unknown>;
 }
 
 export class ErrorHandler {
-  private static instance: ErrorHandler;
-  private logger: Logger;
-  private eventBus: EventBus;
-  private errors: ErrorRecord[] = [];
-  private errorLogPath: string;
+  protected logger: Logger;
+  private moduleName: string;
+  private errorMap: Map<string, number>;
 
-  private constructor() {
-    this.logger = Logger.getInstance();
-    this.eventBus = EventBus.getInstance();
-    
-    const logDir = path.resolve(process.cwd(), 'logs', 'errors');
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
-    this.errorLogPath = path.join(logDir, 'error.log');
+  constructor(moduleName: string) {
+    this.logger = new Logger();
+    this.moduleName = moduleName;
+    this.errorMap = new Map();
   }
 
-  public static getInstance(): ErrorHandler {
-    if (!ErrorHandler.instance) {
-      ErrorHandler.instance = new ErrorHandler();
-    }
-    return ErrorHandler.instance;
-  }
-
-  public captureError(
-    error: Error | string, 
-    options: {
-      severity?: ErrorSeverity;
-      module?: string;
-      context?: Record<string, any>;
-    } = {}
-  ): ErrorRecord {
-    const errorRecord: ErrorRecord = {
-      id: this.generateErrorId(),
-      timestamp: Date.now(),
-      message: typeof error === 'string' ? error : error.message,
-      stack: error instanceof Error ? error.stack : undefined,
-      severity: options.severity || ErrorSeverity.MEDIUM,
-      module: options.module,
-      context: options.context
+  public handleError(error: Error, context?: Record<string, unknown>): void {
+    const metadata: ErrorMetadata = {
+      timestamp: new Date(),
+      module: this.moduleName,
+      context
     };
 
-    this.errors.push(errorRecord);
-    this.logErrorToFile(errorRecord);
-    this.notifyErrorListeners(errorRecord);
+    // Erhöhe Fehlerzähler
+    this.incrementErrorCount(error.name);
 
-    // Log based on severity
-    switch (errorRecord.severity) {
-      case ErrorSeverity.LOW:
-        this.logger.info(`Low Severity Error: ${errorRecord.message}`);
+    // Log-Nachricht mit strukturierten Daten
+    this.logger.error('Error occurred:', {
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      },
+      metadata
+    });
+
+    // Optionale Fehlerbehandlungslogik basierend auf Fehlertyp
+    this.handleSpecificError(error);
+  }
+
+  private incrementErrorCount(errorType: string): void {
+    const currentCount = this.errorMap.get(errorType) || 0;
+    this.errorMap.set(errorType, currentCount + 1);
+  }
+
+  private handleSpecificError(error: Error): void {
+    switch (error.name) {
+      case 'ValidationError':
+        this.handleValidationError(error);
         break;
-      case ErrorSeverity.MEDIUM:
-        this.logger.warn(`Medium Severity Error: ${errorRecord.message}`);
+      case 'NetworkError':
+        this.handleNetworkError(error);
         break;
-      case ErrorSeverity.HIGH:
-        this.logger.error(`High Severity Error: ${errorRecord.message}`);
+      case 'AuthenticationError':
+        this.handleAuthError(error);
         break;
-      case ErrorSeverity.CRITICAL:
-        this.logger.error(`CRITICAL ERROR: ${errorRecord.message}`);
+      default:
+        // Standardbehandlung für unbekannte Fehlertypen
         break;
     }
-
-    return errorRecord;
   }
 
-  private generateErrorId(): string {
-    return `ERR-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;
+  private handleValidationError(error: Error): void {
+    // Spezifische Behandlung für Validierungsfehler
+    this.logger.warn('Validation error occurred:', error.message);
   }
 
-  private logErrorToFile(errorRecord: ErrorRecord): void {
-    const errorLogEntry = JSON.stringify(errorRecord, null, 2) + '\n';
-    
-    try {
-      fs.appendFileSync(this.errorLogPath, errorLogEntry);
-    } catch (fileError) {
-      console.error('Could not write to error log file', fileError);
-    }
+  private handleNetworkError(error: Error): void {
+    // Spezifische Behandlung für Netzwerkfehler
+    this.logger.error('Network error occurred:', error.message);
   }
 
-  private notifyErrorListeners(errorRecord: ErrorRecord): void {
-    this.eventBus.publish('system:error', errorRecord);
+  private handleAuthError(error: Error): void {
+    // Spezifische Behandlung für Authentifizierungsfehler
+    this.logger.error('Authentication error occurred:', error.message);
   }
 
-  public getErrors(
-    filters: {
-      severity?: ErrorSeverity;
-      module?: string;
-      startTime?: number;
-      endTime?: number;
-    } = {}
-  ): ErrorRecord[] {
-    return this.errors.filter(error => {
-      const matchesSeverity = !filters.severity || error.severity === filters.severity;
-      const matchesModule = !filters.module || error.module === filters.module;
-      const matchesStartTime = !filters.startTime || error.timestamp >= filters.startTime;
-      const matchesEndTime = !filters.endTime || error.timestamp <= filters.endTime;
-
-      return matchesSeverity && matchesModule && matchesStartTime && matchesEndTime;
-    });
+  public getErrorCount(errorType: string): number {
+    return this.errorMap.get(errorType) || 0;
   }
 
-  public clearErrors(
-    filters: {
-      severity?: ErrorSeverity;
-      module?: string;
-      olderThan?: number;
-    } = {}
-  ): void {
-    const initialLength = this.errors.length;
-
-    this.errors = this.errors.filter(error => {
-      const matchesSeverity = !filters.severity || error.severity === filters.severity;
-      const matchesModule = !filters.module || error.module === filters.module;
-      const matchesAge = !filters.olderThan || (Date.now() - error.timestamp) < filters.olderThan;
-
-      return !(matchesSeverity && matchesModule && matchesAge);
-    });
-
-    const removedCount = initialLength - this.errors.length;
-    this.logger.info(`Cleared ${removedCount} error records`);
-  }
-
-  public setupGlobalErrorHandlers(): void {
-    process.on('uncaughtException', (error) => {
-      this.captureError(error, { 
-        severity: ErrorSeverity.CRITICAL, 
-        module: 'SYSTEM' 
-      });
-      process.exit(1);
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
-      this.captureError(reason instanceof Error ? reason : new Error(String(reason)), {
-        severity: ErrorSeverity.HIGH,
-        module: 'PROMISE_REJECTION',
-        context: { promise }
-      });
-    });
+  public clearErrorCounts(): void {
+    this.errorMap.clear();
   }
 }
