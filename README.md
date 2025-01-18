@@ -1,46 +1,58 @@
 # Modular Integration System
 
-## 🚀 Projekt-Beschreibung
-Ein modulares TypeScript-basiertes Integrationssystem mit strengen Coding-Standards und automatisierter CI/CD-Pipeline.
+![Build](https://github.com/Ralle1976/modular-integration-system-unified/workflows/Build%20und%20Test/badge.svg)
+![Dependencies](https://github.com/Ralle1976/modular-integration-system-unified/workflows/Dependency%20Updates/badge.svg)
+![Performance](https://github.com/Ralle1976/modular-integration-system-unified/workflows/Performance%20Monitoring/badge.svg)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=Ralle1976_modular-integration-system-unified&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=Ralle1976_modular-integration-system-unified)
 
-## 🛠️ Technologie-Stack
-- TypeScript
-- Node.js
-- ESLint
-- Winston Logging
-- GitHub Actions
+## Features
 
-## 📦 Voraussetzungen
-- Node.js (>=18.x)
-- npm (>=8.x)
+- Automatische Dependency Updates
+- Kontinuierliches Security Monitoring
+- Performance Tracking
+- Resource Usage Monitoring
 
-## 🔧 Erste Schritte
+## Monitoring & Security
 
-### Installation
+### Performance Monitoring
+- Lighthouse Reports alle 6 Stunden
+- Automatische Performance-Warnungen
+- 90-Tage Performance History
+
+### Security
+- Wöchentliche Dependency Updates
+- Snyk Security Scanning
+- CodeQL Analysis
+- Automatische Security Patches
+
+### Resource Monitoring
+- API Rate Limit Tracking
+- Workflow Usage Analysis
+- Error Rate Monitoring
+
+## Development
+
 ```bash
-git clone https://github.com/Ralle1976/modular-integration-system-unified.git
-cd modular-integration-system-unified
+# Installation
 npm install
+
+# Development
+npm run dev
+
+# Build
+npm run build
+
+# Test
+npm run test
 ```
 
-### Entwicklungs-Skripte
-- `npm start`: Startet die Anwendung
-- `npm run build`: Kompiliert TypeScript
-- `npm run lint`: Führt Linting durch
-- `npm run lint:fix`: Behebt automatisch Lint-Probleme
-- `npm test`: Führt Tests aus
+## Monitoring Dashboard
 
-## 📝 Coding-Richtlinien
-- Strikte Typisierung
-- Keine `any`-Typen
-- Explizite Rückgabetypen
-- Strukturiertes Logging
+Die Performance Metriken können im Actions Tab eingesehen werden:
+- Performance Reports
+- Security Scan Results
+- Resource Usage Stats
 
-## 🤝 Beitragen
-1. Repository forken
-2. Feature-Branch erstellen
-3. Änderungen committen
-4. Pull Request erstellen
+## Security Reporting
 
-## 📋 Lizenz
-[Ihre Lizenz hier]
+Bei Sicherheitsproblemen bitte ein Issue erstellen oder direkt an `security@yourdomain.com` melden.
