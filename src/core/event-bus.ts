@@ -1,65 +1,64 @@
-import { Logger } from './logger';
+type EventCallback<T> = (data: T) => void | Promise<void>;
 
-type EventCallback = (data: any) => void;
+interface EventSubscription {
+  event: string;
+  callback: EventCallback<unknown>;
+}
 
 export class EventBus {
-  private static instance: EventBus;
-  private logger: Logger;
-  private subscribers: Map<string, Set<EventCallback>> = new Map();
+  private eventMap: Map<string, Set<EventCallback<unknown>>> = new Map();
 
-  private constructor() {
-    this.logger = Logger.getInstance();
+  public subscribe<T>(event: string, callback: EventCallback<T>): void {
+    if (!this.eventMap.has(event)) {
+      this.eventMap.set(event, new Set());
+    }
+    
+    this.eventMap.get(event)?.add(callback as EventCallback<unknown>);
   }
 
-  public static getInstance(): EventBus {
-    if (!EventBus.instance) {
-      EventBus.instance = new EventBus();
+  public unsubscribe<T>(event: string, callback: EventCallback<T>): void {
+    const callbacks = this.eventMap.get(event);
+    if (callbacks) {
+      callbacks.delete(callback as EventCallback<unknown>);
+      if (callbacks.size === 0) {
+        this.eventMap.delete(event);
+      }
     }
-    return EventBus.instance;
   }
 
-  public subscribe(event: string, callback: EventCallback): () => void {
-    if (!this.subscribers.has(event)) {
-      this.subscribers.set(event, new Set());
-    }
+  public async emit<T>(event: string, data: T): Promise<void> {
+    const callbacks = this.eventMap.get(event);
+    if (!callbacks) return;
 
-    const eventSubscribers = this.subscribers.get(event)!;
-    eventSubscribers.add(callback);
-
-    this.logger.info(`Subscriber added for event: ${event}`);
-
-    // Return unsubscribe function
-    return () => {
-      eventSubscribers.delete(callback);
-      this.logger.info(`Subscriber removed from event: ${event}`);
-    };
-  }
-
-  public publish(event: string, data: any): void {
-    const eventSubscribers = this.subscribers.get(event);
-
-    if (!eventSubscribers || eventSubscribers.size === 0) {
-      this.logger.warn(`No subscribers for event: ${event}`);
-      return;
-    }
-
-    this.logger.info(`Publishing event: ${event} to ${eventSubscribers.size} subscribers`);
-
-    eventSubscribers.forEach(callback => {
+    const promises = Array.from(callbacks).map(callback => {
       try {
-        callback(data);
+        const result = callback(data);
+        return result instanceof Promise ? result : Promise.resolve();
       } catch (error) {
-        this.logger.error(`Error in event handler for ${event}: ${error}`);
+        return Promise.reject(error);
       }
     });
+
+    await Promise.allSettled(promises);
   }
 
-  public clearAllSubscriptions(): void {
-    this.subscribers.clear();
-    this.logger.info('All event subscriptions cleared');
+  public hasSubscribers(event: string): boolean {
+    return this.eventMap.has(event) && (this.eventMap.get(event)?.size ?? 0) > 0;
   }
 
-  public listEvents(): string[] {
-    return Array.from(this.subscribers.keys());
+  public clearEvent(event: string): void {
+    this.eventMap.delete(event);
+  }
+
+  public clearAllEvents(): void {
+    this.eventMap.clear();
+  }
+
+  public getEventCount(): number {
+    return this.eventMap.size;
+  }
+
+  public getSubscriberCount(event: string): number {
+    return this.eventMap.get(event)?.size ?? 0;
   }
 }
