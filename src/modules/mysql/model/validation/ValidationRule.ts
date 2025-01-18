@@ -1,49 +1,25 @@
-/**
- * Interface für Validierungsregeln.
- * Jede Regel muss eine validate() und eine message() Methode implementieren.
- */
+import { ValidationContext } from './ValidationContext';
+
 export interface ValidationRule {
     /**
-     * Führt die Validierung durch.
-     * @param value - Der zu validierende Wert
-     * @param attribute - Name des Attributs das validiert wird
-     * @param data - Alle Modelattribute für kontextabhängige Validierung
-     * @returns true wenn valid, false wenn invalid
+     * Validates a value against this rule
+     * @param value The value to validate
+     * @param context The validation context
+     * @returns Promise<boolean> true if validation passes, false otherwise
      */
-    validate(value: any, attribute: string, data: Record<string, any>): boolean | Promise<boolean>;
+    validate(value: any, context: ValidationContext): Promise<boolean>;
 
     /**
-     * Generiert die Fehlermeldung für diese Regel.
-     * @param attribute - Name des invaliden Attributs
-     * @returns Fehlermeldung als String
+     * Gets the error message for this rule
+     * @param field The field being validated
+     * @param context The validation context
+     * @returns The error message
      */
-    message(attribute: string): string;
+    getMessage(field: string, context: ValidationContext): string;
 
     /**
-     * Optional: Bestimmt ob die Regel asynchron ist
+     * Gets the options for this rule
+     * @returns The rule options
      */
-    isAsync?(): boolean;
-}
-
-/**
- * Basisklasse für Validierungsregeln mit gemeinsamer Funktionalität.
- */
-export abstract class BaseValidationRule implements ValidationRule {
-    protected customMessage?: string;
-
-    constructor(customMessage?: string) {
-        this.customMessage = customMessage;
-    }
-
-    abstract validate(value: any, attribute: string, data: Record<string, any>): boolean | Promise<boolean>;
-
-    public message(attribute: string): string {
-        return this.customMessage || this.defaultMessage(attribute);
-    }
-
-    protected abstract defaultMessage(attribute: string): string;
-
-    public isAsync(): boolean {
-        return false;
-    }
+    getOptions(): Record<string, any>;
 }
