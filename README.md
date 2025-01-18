@@ -1,62 +1,69 @@
-# Modulares Integrationssystem
+# Modular Integration System
 
-## Project Overview
-Ein erweitertes modulares Integrationssystem für verschiedene Service-Integrationen:
-- MySQL
-- GitHub
-- OpenAI ChatGPT
-- Google Drive
+## 🚀 Projektübersicht
 
-## Key Features
+Das Modular Integration System ist eine flexible und erweiterbare Plattform zur Integration verschiedener Dienste und APIs.
+
+## ✨ Hauptfunktionen
+
 - Modulare Architektur
-- Erweiterte Fehlerbehandlung
-- Performance-Überwachung
-- Robuste Retry-Mechanismen
-- Umfassende Testsuite
-- CI/CD-Pipeline-Integration
+- Unterstützung mehrerer Dienste
+- Konfigurierbare Integrationen
+- Robuste Fehlerbehandlung
+- Umfangreiches Logging
 
-## Projektstruktur
-```
-modular-integration-system-unified/
-├── .github/workflows/
-├── docs/
-│   ├── user_guide/
-│   └── api/
-├── kubernetes/
-│   ├── monitoring/
-│   └── backup/
-├── src/modules/
-├── tests/
-└── [Konfigurationsdateien]
-```
+## 🔧 Unterstützte Module
 
-## Installation
+- [x] MySQL-Integration
+- [ ] GitHub-Integration
+- [ ] OpenAI-Integration
+- [ ] Google Drive-Integration
+
+## 📦 Voraussetzungen
+
+- Node.js 18+
+- npm oder yarn
+- Docker (optional)
+
+## 🛠️ Installation
+
 ```bash
+# Repository klonen
+git clone https://github.com/Ralle1976/modular-integration-system-unified.git
+
+# In Projektverzeichnis wechseln
+cd modular-integration-system-unified
+
+# Abhängigkeiten installieren
 npm install
+
+# Konfiguration kopieren
+cp .env.example .env
+cp config/config.example.json config/config.json
 ```
 
-## Konfiguration
-Kopieren Sie die Beispiel-Konfigurationsdatei und passen Sie sie an:
-```bash
-cp config.example.js config.js
-```
+## 🚀 Entwicklung
 
-## Tests ausführen
 ```bash
+# Entwicklungsserver starten
+npm run dev
+
+# Build erstellen
+npm run build
+
+# Tests ausführen
 npm test
 ```
 
-## Migration Status
-- Original Repository: modular-integration-system
-- Aktueller Status: Migration abgeschlossen
+## 📄 Dokumentation
 
-## Nächste Schritte
-1. Kontinuierliche Verbesserung der Module
-2. Erweiterung der Dokumentation
-3. Optimierung der CI/CD-Workflows
+- [Architektur](ARCHITECTURE.md)
+- [Entwicklungsanleitung](DEVELOPMENT.md)
 
-## Beiträge
-Bitte lesen Sie unsere Beitragsrichtlinien, bevor Sie Pull Requests einreichen.
+## 🤝 Beitragen
 
-## Lizenz
-MIT
+Bitte lies [CONTRIBUTING.md](CONTRIBUTING.md) für Details zur Mitarbeit.
+
+## 📝 Lizenz
+
+Dieses Projekt steht unter der MIT-Lizenz. Weitere Details in [LICENSE](LICENSE).
