@@ -2,16 +2,19 @@ import OpenAI from 'openai';
 import { ModuleInterface } from '../../core/module-manager';
 import { ConfigManager } from '../../core/config-manager';
 import { Logger } from '../../core/logger';
+import { AdvancedErrorHandler, ErrorCategory, ErrorSeverity } from '../../core/advanced-error-handler';
 
 export class OpenAIModule implements ModuleInterface {
   public name: string = 'openai';
   private config: ConfigManager;
   private logger: Logger;
+  private errorHandler: AdvancedErrorHandler;
   private client: OpenAI | null = null;
 
   constructor() {
     this.config = ConfigManager.getInstance();
     this.logger = Logger.getInstance();
+    this.errorHandler = AdvancedErrorHandler.getInstance();
   }
 
   public isEnabled(): boolean {
@@ -27,8 +30,7 @@ export class OpenAIModule implements ModuleInterface {
     const apiKey = this.config.get('OPENAI_API_KEY');
     
     if (!apiKey) {
-      this.logger.error('No OpenAI API key provided');
-      return false;
+      return this.handleInitializationError('No OpenAI API key provided');
     }
 
     try {
@@ -40,35 +42,57 @@ export class OpenAIModule implements ModuleInterface {
       this.logger.info('OpenAI module initialized successfully');
       return true;
     } catch (error) {
-      this.logger.error(`OpenAI initialization failed: ${error}`);
-      return false;
+      return this.handleInitializationError(error);
     }
   }
 
-  public async shutdown(): Promise<void> {
-    if (this.client) {
-      this.logger.info('OpenAI module shutting down');
-      this.client = null;
-    }
+  private handleInitializationError(error: any): boolean {
+    const detailedError = this.errorHandler.captureError(error, {
+      category: ErrorCategory.AUTHENTICATION,
+      severity: ErrorSeverity.HIGH,
+      context: {
+        module: this.name,
+        additionalData: {
+          apiKeyProvided: !!this.config.get('OPENAI_API_KEY')
+        }
+      }
+    });
+
+    this.logger.error(`OpenAI Module Initialization Failed: ${detailedError.message}`);
+    return false;
   }
 
   public async listModels(): Promise<string[]> {
     if (!this.client) {
-      throw new Error('OpenAI client not initialized');
+      return this.handleModelListError(new Error('OpenAI client not initialized'));
     }
 
     try {
       const models = await this.client.models.list();
       return models.data.map(model => model.id);
     } catch (error) {
-      this.logger.error(`Error listing OpenAI models: ${error}`);
-      throw error;
+      return this.handleModelListError(error);
     }
+  }
+
+  private handleModelListError(error: any): never {
+    const detailedError = this.errorHandler.captureError(error, {
+      category: ErrorCategory.EXTERNAL_SERVICE,
+      severity: ErrorSeverity.MEDIUM,
+      context: {
+        module: this.name,
+        additionalData: {
+          clientInitialized: !!this.client
+        }
+      }
+    });
+
+    throw new Error(`OpenAI Model Listing Failed: ${detailedError.message}`);
   }
 
   public async generateText(prompt: string, options?: any): Promise<string> {
     if (!this.client) {
-      throw new Error('OpenAI client not initialized');
+      return this.handleTextGenerationError(new Error('OpenAI client not initialized'));
     }
 
     const defaultOptions = {
@@ -85,8 +109,30 @@ export class OpenAIModule implements ModuleInterface {
 
       return completion.choices[0].message.content || '';
     } catch (error) {
-      this.logger.error(`Error generating text: ${error}`);
-      throw error;
+      return this.handleTextGenerationError(error);
+    }
+  }
+
+  private handleTextGenerationError(error: any): never {
+    const detailedError = this.errorHandler.captureError(error, {
+      category: ErrorCategory.EXTERNAL_SERVICE,
+      severity: ErrorSeverity.MEDIUM,
+      context: {
+        module: this.name,
+        additionalData: {
+          clientInitialized: !!this.client,
+          modelUsed: this.config.get('modules.openai.model')
+        }
+      }
+    });
+
+    throw new Error(`OpenAI Text Generation Failed: ${detailedError.message}`);
+  }
+
+  public async shutdown(): Promise<void> {
+    if (this.client) {
+      this.logger.info('OpenAI module shutting down');
+      this.client = null;
     }
   }
 }
