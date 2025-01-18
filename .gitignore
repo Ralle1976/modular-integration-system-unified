@@ -1,0 +1,37 @@
+# Abhängigkeiten
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Umgebungsvariablen
+.env
+!.env.example
+
+# Build-Verzeichnisse
+dist/
+build/
+
+# Logs
+logs/
+*.log
+
+# Editor und IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db
+
+# Temporäre Dateien
+*.tmp
+*.bak
+*.swp
+
+# Projekt-spezifische Ignorierungen
+config.json
+*.local
+coverage/
+.nyc_output/
