@@ -10,13 +10,19 @@
   "scripts": {
     "start": "node --loader ts-node/esm src/index.ts",
     "build": "tsc",
+    "dev": "bash scripts/dev-server.sh",
+    "setup": "bash scripts/build-setup.sh",
+    "watch": "tsc --watch",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "jest --watch",
     "prepare": "husky install",
     "cleanup": "bash scripts/dependency-cleanup.sh",
     "diagnostics": "bash scripts/dependency-diagnostics.sh",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "prebuild": "npm run lint",
+    "predev": "npm run build"
   },
   "dependencies": {
     "@octokit/rest": "^19.0.13",
@@ -36,7 +42,8 @@
     "class-validator": "^0.14.1",
     "tslib": "^2.6.2",
     "type-graphql": "^2.0.0-beta.3",
-    "typeorm": "^0.3.20"
+    "typeorm": "^0.3.20",
+    "nodemon": "^3.0.2"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -55,7 +62,11 @@
   },
   "jest": {
     "preset": "ts-jest",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "testMatch": ["**/*.test.ts"],
+    "collectCoverage": true,
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov"]
   },
   "husky": {
     "hooks": {
