@@ -13,41 +13,33 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Use Node.js 18.x
+    - name: Use Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: 18.x
         cache: 'npm'
     
-    - name: Cache npm dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
+    - name: Verify npm cache
+      run: |
+        npm config get cache
+        ls -la ~/.npm
     
-    - name: Debug Environment
+    - name: Install dependencies
+      run: |
+        if [ ! -f package-lock.json ]; then
+          npm install
+          npm install --package-lock-only
+        fi
+        npm ci
+    
+    - name: Build
+      run: npm run build
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Debug information
       run: |
         node --version
         npm --version
         npm config list
-    
-    - name: Clean npm cache
-      run: npm cache clean --force
-    
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build
-      run: npm run build
-      
-    - name: Run tests
-      run: npm test
-
-    - name: Upload coverage
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report
-        path: coverage/
-        retention-days: 5
