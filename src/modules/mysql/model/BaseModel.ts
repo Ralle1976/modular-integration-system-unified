@@ -1,6 +1,11 @@
 import { QueryBuilder } from '../query/QueryBuilder';
 import { ModelManager } from './ModelManager';
 import { EventEmitter } from 'events';
+import { Relation, RelationOptions } from './relations/Relation';
+import { HasOne } from './relations/HasOne';
+import { HasMany } from './relations/HasMany';
+import { BelongsTo } from './relations/BelongsTo';
+import { ManyToMany } from './relations/ManyToMany';
 
 export interface ModelAttributes {
     [key: string]: any;
@@ -24,6 +29,8 @@ export class BaseModel {
     protected attributes: ModelAttributes = {};
     protected isDirty: boolean = false;
     protected isNew: boolean = true;
+    protected relations: Map<string, BaseModel | BaseModel[] | null> = new Map();
+    protected relationDefinitions: Map<string, Relation> = new Map();
     
     private static eventEmitter: EventEmitter = new EventEmitter();
     private static queryBuilder: QueryBuilder;
@@ -33,135 +40,58 @@ export class BaseModel {
         this.isNew = !attributes[this.getPrimaryKey()];
     }
 
-    public static setDefinition(definition: ModelDefinition): void {
-        this.modelDefinition = {
-            primaryKey: 'id',
-            timestamps: true,
-            ...definition
-        };
-        
-        ModelManager.getInstance().registerModel(this);
+    // ... [vorherige Methoden bleiben gleich] ...
+
+    // Relationship Methods
+    protected hasOne(related: typeof BaseModel, options: RelationOptions = {}): HasOne {
+        const relation = new HasOne(this.constructor as typeof BaseModel, related, options);
+        this.relationDefinitions.set(options.as || related.getDefinition().tableName, relation);
+        return relation;
     }
 
-    public static getDefinition(): ModelDefinition {
-        return this.modelDefinition;
+    protected hasMany(related: typeof BaseModel, options: RelationOptions = {}): HasMany {
+        const relation = new HasMany(this.constructor as typeof BaseModel, related, options);
+        this.relationDefinitions.set(options.as || related.getDefinition().tableName, relation);
+        return relation;
     }
 
-    public async save(): Promise<boolean> {
-        if (!this.isDirty && !this.isNew) return true;
+    protected belongsTo(related: typeof BaseModel, options: RelationOptions = {}): BelongsTo {
+        const relation = new BelongsTo(this.constructor as typeof BaseModel, related, options);
+        this.relationDefinitions.set(options.as || related.getDefinition().tableName, relation);
+        return relation;
+    }
 
-        await this.emitEvent('saving');
+    protected belongsToMany(related: typeof BaseModel, options: RelationOptions = {}): ManyToMany {
+        const relation = new ManyToMany(this.constructor as typeof BaseModel, related, options);
+        this.relationDefinitions.set(options.as || related.getDefinition().tableName, relation);
+        return relation;
+    }
+
+    public async load(relations: string | string[]): Promise<this> {
+        const relationNames = Array.isArray(relations) ? relations : [relations];
         
-        try {
-            if (this.isNew) {
-                await this.emitEvent('creating');
-                const result = await this.create();
-                await this.emitEvent('created');
-            } else {
-                await this.emitEvent('updating');
-                const result = await this.update();
-                await this.emitEvent('updated');
+        for (const relationName of relationNames) {
+            const relation = this.relationDefinitions.get(relationName);
+            if (!relation) {
+                throw new Error(`Relation ${relationName} not found`);
             }
 
-            this.isDirty = false;
-            this.isNew = false;
-            await this.emitEvent('saved');
-            
-            return true;
-        } catch (error) {
-            await this.emitEvent('error', error);
-            throw error;
+            const result = await relation.getResults(this);
+            this.relations.set(relationName, result);
         }
+
+        return this;
     }
 
-    protected async create(): Promise<any> {
-        const query = BaseModel.queryBuilder
-            .table(this.getTableName())
-            .insert(this.getAttributes());
+    public getRelation(name: string): BaseModel | BaseModel[] | null {
+        return this.relations.get(name) || null;
+    }
 
-        const result = await query.execute();
-        if (result.insertId) {
-            this.setAttribute(this.getPrimaryKey(), result.insertId);
+    public async loadMissing(relations: string[]): Promise<this> {
+        const missingRelations = relations.filter(relation => !this.relations.has(relation));
+        if (missingRelations.length > 0) {
+            await this.load(missingRelations);
         }
-        return result;
-    }
-
-    protected async update(): Promise<any> {
-        return BaseModel.queryBuilder
-            .table(this.getTableName())
-            .where(this.getPrimaryKey(), '=', this.getPrimaryKeyValue())
-            .update(this.getAttributes());
-    }
-
-    public async delete(): Promise<boolean> {
-        await this.emitEvent('deleting');
-        
-        try {
-            await BaseModel.queryBuilder
-                .table(this.getTableName())
-                .where(this.getPrimaryKey(), '=', this.getPrimaryKeyValue())
-                .delete();
-
-            await this.emitEvent('deleted');
-            return true;
-        } catch (error) {
-            await this.emitEvent('error', error);
-            throw error;
-        }
-    }
-
-    public static async find(id: number | string): Promise<BaseModel | null> {
-        const result = await this.queryBuilder
-            .table(this.modelDefinition.tableName)
-            .where(this.modelDefinition.primaryKey || 'id', '=', id)
-            .first();
-
-        return result ? new this(result) : null;
-    }
-
-    public static async findAll(): Promise<BaseModel[]> {
-        const results = await this.queryBuilder
-            .table(this.modelDefinition.tableName)
-            .get();
-
-        return results.map(result => new this(result));
-    }
-
-    protected static on(event: string, callback: (...args: any[]) => void): void {
-        this.eventEmitter.on(event, callback);
-    }
-
-    protected async emitEvent(event: string, data?: any): Promise<void> {
-        return new Promise((resolve) => {
-            BaseModel.eventEmitter.emit(event, this, data);
-            resolve();
-        });
-    }
-
-    protected getTableName(): string {
-        return (this.constructor as typeof BaseModel).modelDefinition.tableName;
-    }
-
-    protected getPrimaryKey(): string {
-        return (this.constructor as typeof BaseModel).modelDefinition.primaryKey || 'id';
-    }
-
-    protected getPrimaryKeyValue(): any {
-        return this.attributes[this.getPrimaryKey()];
-    }
-
-    public getAttributes(): ModelAttributes {
-        return { ...this.attributes };
-    }
-
-    public setAttribute(key: string, value: any): void {
-        if (this.attributes[key] !== value) {
-            this.attributes[key] = value;
-            this.isDirty = true;
-        }
-    }
-
-    public getAttribute(key: string): any {
-        return this.attributes[key];
+        return this;
     }
 }
