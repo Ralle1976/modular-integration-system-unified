@@ -1,47 +1,24 @@
-import { ConfigManager } from './core/config-manager';
-import { Logger } from './core/logger';
+import "reflect-metadata";
+import { config } from 'dotenv';
+import { logger } from './utils/logger';
 
-class Application {
-  private logger: Logger;
-  private configManager: ConfigManager;
+// Load environment variables
+config();
 
-  constructor() {
-    this.logger = new Logger('Application');
-    this.configManager = ConfigManager.getInstance();
-  }
+async function main() {
+  try {
+    logger.info('Application starting...');
+    
+    // Basic health check
+    logger.info('Environment:', {
+      nodeEnv: process.env.NODE_ENV,
+      port: process.env.PORT
+    });
 
-  public async initialize(): Promise<void> {
-    try {
-      this.logger.info('Starte Anwendung', {
-        appName: this.configManager.get('appName'),
-        version: this.configManager.get('version'),
-        environment: this.configManager.get('environment')
-      });
-
-      // Hier können weitere Initialisierungsschritte hinzugefügt werden
-      await this.setupModules();
-      
-      this.startServer();
-    } catch (error) {
-      this.logger.error('Fehler bei der Initialisierung', error);
-      process.exit(1);
-    }
-  }
-
-  private async setupModules(): Promise<void> {
-    // Platzhalter für Modulinitialisierung
-    this.logger.info('Initialisiere Systemmodule');
-  }
-
-  private startServer(): void {
-    const port = this.configManager.get('server.port', 3000);
-    const host = this.configManager.get('server.host', 'localhost');
-
-    // Hier könnte ein Express oder anderer Server-Setup erfolgen
-    this.logger.info('Server gestartet', { host, port });
+  } catch (error) {
+    logger.error('Application failed to start:', error);
+    process.exit(1);
   }
 }
 
-// Hauptanwendungsstart
-const app = new Application();
-app.initialize().catch(console.error);
+main();
