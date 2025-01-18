@@ -1,0 +1,46 @@
+{
+  "application": {
+    "name": "Modular Integration System",
+    "version": "1.0.0",
+    "environment": "development",
+    "debug": true
+  },
+  "modules": {
+    "mysql": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 3306,
+      "database": "modular_integration",
+      "maxConnections": 10,
+      "connectionTimeout": 10000
+    },
+    "github": {
+      "enabled": false,
+      "apiVersion": "v3",
+      "rateLimitRetry": true
+    },
+    "openai": {
+      "enabled": false,
+      "model": "gpt-3.5-turbo",
+      "maxTokens": 1000
+    },
+    "googleDrive": {
+      "enabled": false,
+      "scope": "https://www.googleapis.com/auth/drive"
+    }
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "maxFiles": 5,
+    "maxSize": "10M"
+  },
+  "security": {
+    "corsEnabled": true,
+    "allowedOrigins": ["http://localhost:3000"],
+    "rateLimiting": {
+      "windowMs": 15 * 60 * 1000,
+      "max": 100
+    }
+  }
+}
