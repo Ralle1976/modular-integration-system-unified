@@ -1,57 +1,44 @@
-name: Build and Test
+name: Build und Test
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
   build:
-    # Explizit ubuntu-22.04 statt ubuntu-latest verwenden
-    runs-on: ubuntu-22.04
-
+    runs-on: ubuntu-24.04
+    
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [20.x]
 
     steps:
     - uses: actions/checkout@v4
     
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Node.js Setup ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        cache-dependency-path: '**/package-lock.json'
-    
-    - name: Cache node modules
-      uses: actions/cache@v4
-      env:
-        cache-name: cache-node-modules
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
-
-    - name: Install dependencies
-      run: |
-        npm install
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add package-lock.json
-        git commit -m "chore: update package-lock.json [skip ci]" || echo "No changes to commit"
-        git push || echo "No changes to push"
+        
+    - name: Clean Install Dependencies
+      run: npm ci
       
-    - name: Run Linter
+    - name: Run Linting
       run: npm run lint
       
-    - name: Build
+    - name: Run Build
       run: npm run build
       
-    - name: Test
+    - name: Run Tests
       run: npm test
+      
+    - name: Cache node modules
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
