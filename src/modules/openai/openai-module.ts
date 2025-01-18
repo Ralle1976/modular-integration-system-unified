@@ -1,138 +1,47 @@
-import OpenAI from 'openai';
-import { ModuleInterface } from '../../core/module-manager';
-import { ConfigManager } from '../../core/config-manager';
+import { Configuration, OpenAIApi } from 'openai';
 import { Logger } from '../../core/logger';
-import { AdvancedErrorHandler, ErrorCategory, ErrorSeverity } from '../../core/advanced-error-handler';
+import { ErrorHandler } from '../../core/error-handler';
 
-export class OpenAIModule implements ModuleInterface {
-  public name: string = 'openai';
-  private config: ConfigManager;
+export class OpenAIModule {
+  private static instance: OpenAIModule;
+  private openai: OpenAIApi;
   private logger: Logger;
-  private errorHandler: AdvancedErrorHandler;
-  private client: OpenAI | null = null;
+  private errorHandler: ErrorHandler;
 
-  constructor() {
-    this.config = ConfigManager.getInstance();
+  protected constructor() {
     this.logger = Logger.getInstance();
-    this.errorHandler = AdvancedErrorHandler.getInstance();
-  }
-
-  public isEnabled(): boolean {
-    return this.config.get('modules.openai.enabled', false) as boolean;
-  }
-
-  public async initialize(): Promise<boolean> {
-    if (!this.isEnabled()) {
-      this.logger.info('OpenAI module is disabled');
-      return false;
-    }
-
-    const apiKey = this.config.get('OPENAI_API_KEY');
+    this.errorHandler = ErrorHandler.getInstance();
     
-    if (!apiKey) {
-      return this.handleInitializationError('No OpenAI API key provided');
-    }
-
-    try {
-      this.client = new OpenAI({ apiKey });
-      
-      // Test connection
-      await this.listModels();
-      
-      this.logger.info('OpenAI module initialized successfully');
-      return true;
-    } catch (error) {
-      return this.handleInitializationError(error);
-    }
-  }
-
-  private handleInitializationError(error: any): boolean {
-    const detailedError = this.errorHandler.captureError(error, {
-      category: ErrorCategory.AUTHENTICATION,
-      severity: ErrorSeverity.HIGH,
-      context: {
-        module: this.name,
-        additionalData: {
-          apiKeyProvided: !!this.config.get('OPENAI_API_KEY')
-        }
-      }
+    const configuration = new Configuration({
+      apiKey: process.env.OPENAI_API_KEY,
     });
-
-    this.logger.error(`OpenAI Module Initialization Failed: ${detailedError.message}`);
-    return false;
+    this.openai = new OpenAIApi(configuration);
   }
 
-  public async listModels(): Promise<string[]> {
-    if (!this.client) {
-      return this.handleModelListError(new Error('OpenAI client not initialized'));
+  public static getInstance(): OpenAIModule {
+    if (!OpenAIModule.instance) {
+      OpenAIModule.instance = new OpenAIModule();
     }
+    return OpenAIModule.instance;
+  }
 
+  public async generateText(prompt: string, options: {
+    maxTokens?: number;
+    temperature?: number;
+    model?: string;
+  } = {}): Promise<string> {
     try {
-      const models = await this.client.models.list();
-      return models.data.map(model => model.id);
-    } catch (error) {
-      return this.handleModelListError(error);
-    }
-  }
-
-  private handleModelListError(error: any): never {
-    const detailedError = this.errorHandler.captureError(error, {
-      category: ErrorCategory.EXTERNAL_SERVICE,
-      severity: ErrorSeverity.MEDIUM,
-      context: {
-        module: this.name,
-        additionalData: {
-          clientInitialized: !!this.client
-        }
-      }
-    });
-
-    throw new Error(`OpenAI Model Listing Failed: ${detailedError.message}`);
-  }
-
-  public async generateText(prompt: string, options?: any): Promise<string> {
-    if (!this.client) {
-      return this.handleTextGenerationError(new Error('OpenAI client not initialized'));
-    }
-
-    const defaultOptions = {
-      model: this.config.get('modules.openai.model', 'gpt-3.5-turbo'),
-      max_tokens: this.config.get('modules.openai.maxTokens', 150)
-    };
-
-    try {
-      const completion = await this.client.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        ...defaultOptions,
-        ...options
+      const response = await this.openai.createCompletion({
+        model: options.model || 'text-davinci-003',
+        prompt: prompt,
+        max_tokens: options.maxTokens || 100,
+        temperature: options.temperature || 0.7
       });
 
-      return completion.choices[0].message.content || '';
+      return response.data.choices[0]?.text || '';
     } catch (error) {
-      return this.handleTextGenerationError(error);
-    }
-  }
-
-  private handleTextGenerationError(error: any): never {
-    const detailedError = this.errorHandler.captureError(error, {
-      category: ErrorCategory.EXTERNAL_SERVICE,
-      severity: ErrorSeverity.MEDIUM,
-      context: {
-        module: this.name,
-        additionalData: {
-          clientInitialized: !!this.client,
-          modelUsed: this.config.get('modules.openai.model')
-        }
-      }
-    });
-
-    throw new Error(`OpenAI Text Generation Failed: ${detailedError.message}`);
-  }
-
-  public async shutdown(): Promise<void> {
-    if (this.client) {
-      this.logger.info('OpenAI module shutting down');
-      this.client = null;
+      this.logger.error('Failed to generate text', { error });
+      throw error;
     }
   }
 }

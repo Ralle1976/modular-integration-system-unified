@@ -1,13 +1,17 @@
-import { createPool, Pool, PoolConnection } from 'mysql2/promise';
-import { Logger } from '../../utils/logger';
+import { Pool, PoolConnection, createPool } from 'mysql2/promise';
+import { Logger } from '../../core/logger';
 
-export class MySQLConnector {
-  private static instance: MySQLConnector;
+export class MySQLModule {
+  private static instance: MySQLModule;
   private pool: Pool;
   private logger: Logger;
 
   private constructor() {
     this.logger = Logger.getInstance();
+    this.initializePool();
+  }
+
+  private initializePool(): void {
     this.pool = createPool({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
@@ -19,11 +23,11 @@ export class MySQLConnector {
     });
   }
 
-  public static getInstance(): MySQLConnector {
-    if (!MySQLConnector.instance) {
-      MySQLConnector.instance = new MySQLConnector();
+  public static getInstance(): MySQLModule {
+    if (!MySQLModule.instance) {
+      MySQLModule.instance = new MySQLModule();
     }
-    return MySQLConnector.instance;
+    return MySQLModule.instance;
   }
 
   public async getConnection(): Promise<PoolConnection> {

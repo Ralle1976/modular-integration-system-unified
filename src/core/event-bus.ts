@@ -1,18 +1,14 @@
 import { Logger } from './logger';
 
-type EventCallback<T = unknown> = (data: T) => void | Promise<void>;
-
-interface EventSubscription {
-  unsubscribe(): void;
-}
+type EventCallback<T = any> = (data: T) => void;
 
 export class EventBus {
   private static instance: EventBus;
-  private eventMap: Map<string, Set<EventCallback>> = new Map();
+  private events: Map<string, EventCallback[]> = new Map();
   private logger: Logger;
 
-  private constructor() {
-    this.logger = new Logger('EventBus');
+  protected constructor() {
+    this.logger = Logger.getInstance();
   }
 
   public static getInstance(): EventBus {
@@ -22,59 +18,40 @@ export class EventBus {
     return EventBus.instance;
   }
 
-  public subscribe<T = unknown>(
-    eventName: string, 
-    callback: EventCallback<T>
-  ): EventSubscription {
-    if (!this.eventMap.has(eventName)) {
-      this.eventMap.set(eventName, new Set());
+  public subscribe<T>(event: string, callback: EventCallback<T>): void {
+    if (!this.events.has(event)) {
+      this.events.set(event, []);
     }
-
-    const callbackSet = this.eventMap.get(eventName)!;
-    callbackSet.add(callback);
-
-    this.logger.info(`Neuer Subscriber für Event: ${eventName}`);
-
-    return {
-      unsubscribe: () => {
-        callbackSet.delete(callback);
-        this.logger.info(`Subscriber für Event entfernt: ${eventName}`);
-      }
-    };
+    this.events.get(event)?.push(callback);
   }
 
-  public async emit<T = unknown>(
-    eventName: string, 
-    data: T
-  ): Promise<void> {
-    const callbacks = this.eventMap.get(eventName);
-    
-    if (!callbacks || callbacks.size === 0) {
-      this.logger.warn(`Keine Subscriber für Event: ${eventName}`);
+  public emit<T>(event: string, data: T): void {
+    const callbacks = this.events.get(event);
+    if (!callbacks) {
+      this.logger.warn(`No subscribers found for event: ${event}`);
       return;
     }
 
-    this.logger.info(`Emitting Event: ${eventName}`, { 
-      subscriberCount: callbacks.size 
-    });
-
-    const promises = Array.from(callbacks).map(async (callback) => {
+    callbacks.forEach(callback => {
       try {
-        await callback(data);
+        callback(data);
       } catch (error) {
-        this.logger.error(`Fehler in Event-Handler für ${eventName}`, error);
+        this.logger.error('Error in event callback', { event, error });
       }
     });
+  }
 
-    await Promise.allSettled(promises);
+  public unsubscribe<T>(event: string, callback: EventCallback<T>): void {
+    const callbacks = this.events.get(event);
+    if (!callbacks) return;
+
+    const index = callbacks.indexOf(callback as EventCallback);
+    if (index !== -1) {
+      callbacks.splice(index, 1);
+    }
   }
 
   public clearAllSubscriptions(): void {
-    this.eventMap.clear();
-    this.logger.info('Alle Event-Subscriptions gelöscht');
-  }
-
-  public getSubscriberCount(eventName: string): number {
-    return this.eventMap.get(eventName)?.size || 0;
+    this.events.clear();
   }
 }
