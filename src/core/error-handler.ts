@@ -2,9 +2,9 @@ import { Logger } from './logger';
 
 export class ErrorHandler {
   private static instance: ErrorHandler;
-  private logger: Logger;
+  protected logger: Logger;
 
-  private constructor() {
+  protected constructor() {
     this.logger = Logger.getInstance();
   }
 
@@ -15,20 +15,22 @@ export class ErrorHandler {
     return ErrorHandler.instance;
   }
 
-  public setupGlobalErrorHandlers(): void {
-    process.on('uncaughtException', (error) => {
-      this.captureError(error, { type: 'UNCAUGHT_EXCEPTION' });
-    });
-
-    process.on('unhandledRejection', (error) => {
-      this.captureError(error as Error, { type: 'UNHANDLED_REJECTION' });
+  public handleError(error: Error, context?: Record<string, unknown>): void {
+    this.logger.error(`Error occurred: ${error.message}`, {
+      error,
+      stack: error.stack,
+      ...context
     });
   }
 
-  public captureError(error: Error, context?: Record<string, unknown>): void {
-    this.logger.error(error.message, {
-      stack: error.stack,
-      ...context
+  public setupGlobalErrorHandlers(): void {
+    process.on('uncaughtException', (error: Error) => {
+      this.handleError(error, { type: 'UNCAUGHT_EXCEPTION' });
+    });
+
+    process.on('unhandledRejection', (error: any) => {
+      this.handleError(error instanceof Error ? error : new Error(String(error)), 
+        { type: 'UNHANDLED_REJECTION' });
     });
   }
 }
