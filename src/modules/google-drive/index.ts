@@ -3,12 +3,13 @@ import { google } from 'googleapis';
 import { GoogleDriveConfig, FileMetadata, UploadOptions, ListOptions } from './types';
 import { ErrorHandler } from '../../core/error-handler';
 import { GoogleDriveAuthService } from './auth-service';
+import { GoogleDriveFileService } from './file-service';
 
 export class GoogleDriveModule extends EventEmitter {
   private config: GoogleDriveConfig;
   private errorHandler: ErrorHandler;
   private authService: GoogleDriveAuthService;
-  private drive: any;
+  private fileService: GoogleDriveFileService | null = null;
 
   constructor(config: GoogleDriveConfig) {
     super();
@@ -21,8 +22,9 @@ export class GoogleDriveModule extends EventEmitter {
 
   private async initialize(): Promise<void> {
     try {
-      // OAuth2-Client initialisieren
-      this.drive = google.drive({ version: 'v3', auth: this.authService.getAuthClient() });
+      if (this.authService.isAuthenticated()) {
+        this.fileService = new GoogleDriveFileService(this.authService.getAuthClient());
+      }
       this.emit('ready');
     } catch (error) {
       this.errorHandler.handleError(error);
@@ -43,7 +45,7 @@ export class GoogleDriveModule extends EventEmitter {
   async handleAuthCode(code: string): Promise<void> {
     try {
       await this.authService.handleAuthCode(code);
-      await this.initialize();
+      this.fileService = new GoogleDriveFileService(this.authService.getAuthClient());
       this.emit('authenticated');
     } catch (error) {
       this.errorHandler.handleError(error);
@@ -63,12 +65,10 @@ export class GoogleDriveModule extends EventEmitter {
    */
   async uploadFile(filePath: string, options: UploadOptions): Promise<FileMetadata> {
     try {
-      if (!this.isAuthenticated()) {
-        throw new Error('Nicht authentifiziert');
+      if (!this.fileService) {
+        throw new Error('Modul nicht initialisiert oder nicht authentifiziert');
       }
-
-      // Implementation folgt
-      throw new Error('Noch nicht implementiert');
+      return await this.fileService.uploadFile(filePath, options);
     } catch (error) {
       this.errorHandler.handleError(error);
       throw error;
@@ -80,10 +80,9 @@ export class GoogleDriveModule extends EventEmitter {
    */
   async downloadFile(fileId: string, destinationPath: string): Promise<void> {
     try {
-      if (!this.isAuthenticated()) {
-        throw new Error('Nicht authentifiziert');
+      if (!this.fileService) {
+        throw new Error('Modul nicht initialisiert oder nicht authentifiziert');
       }
-
       // Implementation folgt
       throw new Error('Noch nicht implementiert');
     } catch (error) {
@@ -97,10 +96,9 @@ export class GoogleDriveModule extends EventEmitter {
    */
   async listFiles(options?: ListOptions): Promise<FileMetadata[]> {
     try {
-      if (!this.isAuthenticated()) {
-        throw new Error('Nicht authentifiziert');
+      if (!this.fileService) {
+        throw new Error('Modul nicht initialisiert oder nicht authentifiziert');
       }
-
       // Implementation folgt
       throw new Error('Noch nicht implementiert');
     } catch (error) {
