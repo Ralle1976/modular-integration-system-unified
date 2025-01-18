@@ -1,13 +1,17 @@
 import { Configuration, OpenAIApi } from 'openai';
 import { Logger } from '../../core/logger';
+import { ErrorHandler } from '../../core/error-handler';
 
 export class OpenAIModule {
   private static instance: OpenAIModule;
   private openai: OpenAIApi;
   private logger: Logger;
+  private errorHandler: ErrorHandler;
 
-  private constructor() {
+  protected constructor() {
     this.logger = Logger.getInstance();
+    this.errorHandler = ErrorHandler.getInstance();
+    
     const configuration = new Configuration({
       apiKey: process.env.OPENAI_API_KEY,
     });
@@ -21,12 +25,17 @@ export class OpenAIModule {
     return OpenAIModule.instance;
   }
 
-  public async generateText(prompt: string): Promise<string> {
+  public async generateText(prompt: string, options: {
+    maxTokens?: number;
+    temperature?: number;
+    model?: string;
+  } = {}): Promise<string> {
     try {
       const response = await this.openai.createCompletion({
-        model: 'text-davinci-003',
+        model: options.model || 'text-davinci-003',
         prompt: prompt,
-        max_tokens: 100
+        max_tokens: options.maxTokens || 100,
+        temperature: options.temperature || 0.7
       });
 
       return response.data.choices[0]?.text || '';
