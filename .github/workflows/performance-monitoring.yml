@@ -1,0 +1,54 @@
+name: Performance Monitoring
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 3 * * *' # Täglich um 3 Uhr morgens
+
+jobs:
+  performance-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Dependencies
+        run: npm ci
+      
+      - name: Build Project
+        run: npm run build
+      
+      - name: Run Performance Tests
+        run: |
+          npm install -g artillery
+          artillery run performance-tests/load-test.yml
+      
+      - name: Performance Benchmarking
+        run: |
+          npm install -g benchmark
+          node performance-tests/benchmark.js
+      
+      - name: Upload Performance Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results
+          path: performance-results
+          retention-days: 7
+      
+      - name: Create GitHub Issue on Performance Degradation
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Performance Regression Detected',
+              body: 'Performance tests have detected a potential regression. Please investigate.'
+            })
