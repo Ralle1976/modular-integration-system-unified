@@ -1,0 +1,48 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Montags um 2 Uhr morgens
+  workflow_dispatch: # Manuelle Auslösung möglich
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Cache npm dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: Update Dependencies
+        run: |
+          npm install -g npm-check-updates
+          ncu -u
+          npm install
+          npm audit fix
+      
+      - name: Run Tests
+        run: npm test
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: Update dependencies
+          title: Automatische Abhängigkeitenaktualisierung
+          body: |
+            Automatisch generierter Pull Request für Dependency-Updates
+            
+            - Abhängigkeiten mit npm-check-updates aktualisiert
+            - Sicherheitsupdates mit npm audit fix durchgeführt
+          branch: dependency-updates
+          delete-branch: true
