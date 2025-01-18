@@ -1,24 +1,16 @@
-import { BaseModel } from '../BaseModel';
-import { Relation, RelationOptions } from './Relation';
-import { QueryBuilder } from '../../query/QueryBuilder';
+export class BelongsTo<T> implements Relation<T> {
+    private foreignKey: string;
+    private targetModel: typeof Model;
 
-export class BelongsTo extends Relation {
-    protected setupKeys(options: RelationOptions): void {
-        const relatedTable = this.relatedModel.getDefinition().tableName;
-        
-        this.foreignKey = options.foreignKey || `${relatedTable}_id`;
-        this.localKey = options.localKey || 'id';
+    constructor(targetModel: typeof Model, foreignKey: string) {
+        this.targetModel = targetModel;
+        this.foreignKey = foreignKey;
     }
 
-    protected buildQuery(parentInstance: BaseModel): QueryBuilder {
-        return this.query
-            .table(this.relatedModel.getDefinition().tableName)
-            .where(this.localKey, '=', parentInstance.getAttribute(this.foreignKey))
-            .limit(1);
-    }
+    public async load(sourceInstance: Model): Promise<T | null> {
+        const foreignKeyValue = sourceInstance[this.foreignKey];
+        if (!foreignKeyValue) return null;
 
-    protected hydrateResults(results: any[]): BaseModel | null {
-        if (!results.length) return null;
-        return new (this.relatedModel as any)(results[0]);
+        return await this.targetModel.findById(foreignKeyValue) as T;
     }
 }
