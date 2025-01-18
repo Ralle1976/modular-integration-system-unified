@@ -1,23 +1,23 @@
-# Verwende eine offizielle Node.js-Basis-Image
-FROM node:18-alpine
+# Basis Image
+FROM node:20-alpine
 
-# Setze das Arbeitsverzeichnis im Container
-WORKDIR /app
+# Arbeitsverzeichnis erstellen
+WORKDIR /usr/src/app
 
-# Kopiere package.json und package-lock.json
+# Package Files kopieren
 COPY package*.json ./
 
-# Installiere Projektabhängigkeiten
-RUN npm install
+# Dependencies installieren
+RUN npm ci
 
-# Kopiere den Rest der Anwendung
+# Source kopieren
 COPY . .
 
-# Kompiliere TypeScript
+# TypeScript kompilieren
 RUN npm run build
 
-# Exponiere den Port, auf dem die Anwendung läuft
+# Port freigeben
 EXPOSE 3000
 
-# Starte die Anwendung
+# Anwendung starten
 CMD ["npm", "start"]
