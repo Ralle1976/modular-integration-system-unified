@@ -1,0 +1,54 @@
+name: Dependency Synchronization
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'  # Wöchentlich am Montag
+
+jobs:
+  sync-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Clean npm cache
+      run: npm cache clean --force
+    
+    - name: Remove node_modules and lock file
+      run: |
+        rm -rf node_modules
+        rm -f package-lock.json
+    
+    - name: Install Dependencies
+      run: npm install
+    
+    - name: Update Dependencies
+      run: |
+        npx npm-check-updates -u
+        npm install
+    
+    - name: Run Lint
+      run: npm run lint:fix
+    
+    - name: Run Tests
+      run: npm test
+    
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v6
+      with:
+        commit-message: Update dependencies
+        title: Automatische Abhängigkeitenaktualisierung
+        body: |
+          🤖 Automatischer Dependency-Update
+
+          - Abhängigkeiten aktualisiert
+          - Lint-Fehler behoben
+          - Tests durchgeführt
+        branch: dependency-updates
+        delete-branch: true
