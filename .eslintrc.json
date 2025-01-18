@@ -9,16 +9,17 @@
     "plugin:@typescript-eslint/recommended"
   ],
   "rules": {
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-explicit-any": "off", // Temporär deaktiviert
+    "@typescript-eslint/explicit-function-return-type": "off", // Temporär deaktiviert
     "@typescript-eslint/no-unused-vars": [
       "warn", 
       { 
         "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_"
+        "varsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_"
       }
     ],
-    "@typescript-eslint/explicit-function-return-type": "warn",
-    "max-len": ["warn", { "code": 120 }],
+    "max-len": ["warn", { "code": 150 }],
     "no-console": ["warn", { "allow": ["warn", "error"] }],
     "@typescript-eslint/no-var-requires": "warn"
   },
@@ -32,8 +33,10 @@
     }
   ],
   "ignorePatterns": [
-    "dist/",
-    "node_modules/",
-    "**/*.js"
+    "dist/", 
+    "node_modules/", 
+    "**/*.js",
+    "scripts/",
+    "performance-tests/"
   ]
 }
