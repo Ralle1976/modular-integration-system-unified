@@ -1,0 +1,22 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: Warm up
+    - duration: 120
+      arrivalRate: 5
+      rampTo: 50
+      name: Sustained load
+
+scenarios:
+  - name: "API Performance Test"
+    flow:
+      - get:
+          url: "/health"
+      - get:
+          url: "/metrics"
+      - post:
+          url: "/api/example"
+          json:
+            data: "test payload"
