@@ -1,3 +1,10 @@
+import { ConfigValidator, ValidationResult } from './services/config-validator';
+import { DependencyContainer } from './services/dependency-container';
+import { MonitoringService } from './services/monitoring-service';
+import { EventBus } from './services/event-bus';
+import { ErrorHandler } from './services/error-handler';
+import { SystemMetrics } from './types/system-metrics';
+
 export class ApplicationService {
     private configValidator: ConfigValidator;
     private dependencyContainer: DependencyContainer;
@@ -27,9 +34,6 @@ export class ApplicationService {
             if (!configValidation.isValid) {
                 throw new Error('Ungültige Konfiguration');
             }
-            
-            this.registerModules();
-            
         } catch (error) {
             this.errorHandler.handleError(error as Error);
             throw error;
