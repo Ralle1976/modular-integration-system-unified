@@ -1,12 +1,17 @@
-export class AdvancedErrorHandler extends Error {
-    private context: ErrorContext;
+import { ErrorContext } from './types/error-context';
 
-    constructor(moduleName: string) {
-        super();
-        this.context = {
-            module: moduleName,
-            operation: '',
-            timestamp: new Date()
-        };
-    }
+export class AdvancedErrorHandler extends Error {
+  private context: ErrorContext;
+
+  constructor(moduleName: string) {
+    super();
+    this.context = {
+      moduleName,
+      timestamp: new Date()
+    };
+  }
+
+  getContext(): ErrorContext {
+    return this.context;
+  }
 }
