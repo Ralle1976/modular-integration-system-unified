@@ -5,11 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "rimraf dist && tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
-    "clean": "rimraf dist",
-    "test": "echo \"No tests specified\" && exit 0"
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "reflect-metadata": "^0.2.1",
@@ -17,12 +14,6 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.5",
-    "rimraf": "^5.0.5",
-    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
-  },
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "private": true
+  }
 }
