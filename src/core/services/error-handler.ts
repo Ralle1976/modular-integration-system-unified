@@ -1,6 +1,6 @@
 export class ErrorHandler {
-  handle(error: Error): void {
+  handleError(error: Error): void {
+    console.error('Error:', error.message);
     // Implementierung der Fehlerbehandlung
-    console.error('Error handled:', error);
   }
 }

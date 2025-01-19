@@ -1,19 +1,19 @@
 type EventHandler = (data: any) => void;
 
 export class EventBus {
-  private eventHandlers: Map<string, EventHandler[]> = new Map();
+  private handlers: Map<string, EventHandler[]> = new Map();
 
-  subscribe(eventName: string, handler: EventHandler): void {
-    if (!this.eventHandlers.has(eventName)) {
-      this.eventHandlers.set(eventName, []);
+  subscribe(event: string, handler: EventHandler): void {
+    if (!this.handlers.has(event)) {
+      this.handlers.set(event, []);
     }
-    this.eventHandlers.get(eventName)?.push(handler);
+    this.handlers.get(event)!.push(handler);
   }
 
-  publish(eventName: string, data?: any): void {
-    const handlers = this.eventHandlers.get(eventName);
-    if (handlers) {
-      handlers.forEach(handler => handler(data));
+  emit(event: string, data: any): void {
+    const eventHandlers = this.handlers.get(event);
+    if (eventHandlers) {
+      eventHandlers.forEach(handler => handler(data));
     }
   }
 }

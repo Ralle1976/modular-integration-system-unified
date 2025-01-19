@@ -1,11 +1,14 @@
 export class DependencyContainer {
   private container: Map<string, any> = new Map();
 
-  register(key: string, instance: any): void {
-    this.container.set(key, instance);
+  register(name: string, instance: any): void {
+    this.container.set(name, instance);
   }
 
-  resolve<T>(key: string): T {
-    return this.container.get(key) as T;
+  resolve<T>(name: string): T {
+    if (!this.container.has(name)) {
+      throw new Error(`No dependency found for: ${name}`);
+    }
+    return this.container.get(name) as T;
   }
 }

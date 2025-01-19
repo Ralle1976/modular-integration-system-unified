@@ -1,5 +1,6 @@
 export interface ErrorContext {
-  moduleName: string;
+  module: string;
+  operation: string;
   timestamp: Date;
-  additionalInfo?: any;
+  details?: any;
 }

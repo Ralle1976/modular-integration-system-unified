@@ -1,6 +1,11 @@
+export interface ValidationResult {
+  isValid: boolean;
+  errors?: string[];
+}
+
 export class ConfigValidator {
-  validate(config: any): boolean {
-    // Implementierung der Konfigurationsvalidierung
-    return true;
+  async validate(): Promise<ValidationResult> {
+    // Implementierung der Validierungslogik
+    return { isValid: true };
   }
 }
