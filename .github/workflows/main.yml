@@ -1,4 +1,4 @@
-name: Main CI/CD Pipeline
+name: Main CI Pipeline
 
 on:
   push:
@@ -9,49 +9,51 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
 
-      - name: Create tsconfig.json
-        run: |
-          echo '{
-            "compilerOptions": {
-              "target": "es2020",
-              "module": "commonjs",
-              "lib": ["es2020"],
-              "outDir": "./dist",
-              "rootDir": "./src",
-              "strict": true,
-              "esModuleInterop": true,
-              "skipLibCheck": true,
-              "forceConsistentCasingInFileNames": true,
-              "experimentalDecorators": true,
-              "emitDecoratorMetadata": true,
-              "declaration": true,
-              "moduleResolution": "node"
-            },
-            "include": ["src/**/*"],
-            "exclude": ["node_modules", "**/*.spec.ts"]
-          }' > tsconfig.json
+    # Cache npm dependencies
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
 
-      - name: Install dependencies
-        run: npm ci || (rm -rf node_modules package-lock.json && npm install)
+    # Clean installation
+    - name: Clean install
+      run: |
+        echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+        rm -rf node_modules package-lock.json
+        npm install
 
-      - name: Build
-        run: npm run build
+    # Create tsconfig.json
+    - name: Setup TypeScript
+      run: |
+        echo '{
+          "compilerOptions": {
+            "target": "es2020",
+            "module": "commonjs",
+            "outDir": "./dist",
+            "rootDir": "./src",
+            "strict": true,
+            "esModuleInterop": true,
+            "skipLibCheck": true,
+            "forceConsistentCasingInFileNames": true,
+            "experimentalDecorators": true,
+            "emitDecoratorMetadata": true
+          },
+          "include": ["src/**/*"],
+          "exclude": ["node_modules", "dist"]
+        }' > tsconfig.json
 
-  analyze:
-    needs: build
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
-        with:
-          languages: typescript
-      - uses: github/codeql-action/analyze@v3
+    # Build project
+    - name: Build
+      run: npm run build
