@@ -19,7 +19,42 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci || (rm -rf node_modules package-lock.json && npm install)
 
       - name: Build
         run: npm run build
+
+  lint:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci || (rm -rf node_modules package-lock.json && npm install)
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+  security:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Security audit
+        run: npm audit --production || true
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3

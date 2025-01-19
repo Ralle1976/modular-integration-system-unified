@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "rimraf dist && tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "clean": "rimraf dist",
@@ -23,4 +23,6 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  }}
+  },
+  "private": true
+}
